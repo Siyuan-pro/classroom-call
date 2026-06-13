@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>老师控制台 - 课堂喊人传话</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        /* 入口：输入教室号 */
+        .entry-page {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .entry-card {
+            background: #fff;
+            border-radius: 20px;
+            padding: 40px 30px;
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+        }
+        .entry-card h2 { font-size: 1.6rem; margin-bottom: 8px; }
+        .entry-card p { color: #888; margin-bottom: 24px; font-size: 0.9rem; }
+        .room-input {
+            width: 100%;
+            height: 64px;
+            background: #f5f5f5;
+            border: 2px solid #e5e7eb;
+            border-radius: 14px;
+            font-size: 2.2rem;
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: 16px;
+            color: #4F46E5;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .room-input:focus { border-color: #4F46E5; }
+        .entry-btn {
+            width: 100%;
+            height: 52px;
+            background: #4F46E5;
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: 700;
+            border: none;
+            border-radius: 14px;
+            margin-top: 16px;
+            cursor: pointer;
+        }
+        .entry-btn:disabled { background: #c7d2fe; }
+
+        /* 控制台 */
+        .control-page { display: none; }
+
+        .status-bar {
+            background: #fff;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .status-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #10B981;
+        }
+        .status-dot.off { background: #EF4444; }
+        .status-text { font-size: 0.85rem; font-weight: 600; }
+        .status-room { font-size: 0.8rem; color: #999; margin-left: auto; }
+
+        .section {
+            margin: 12px;
+            background: #fff;
+            border-radius: 16px;
+            padding: 20px 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .section-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .call-row {
+            display: flex;
+            gap: 10px;
+        }
+        .call-row input {
+            flex: 1;
+            padding: 12px 14px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 1rem;
+            outline: none;
+        }
+        .call-row input:focus { border-color: #4F46E5; }
+
+        .btn-call {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #f59e0b, #f97316);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .btn-call:active { transform: scale(0.97); }
+
+        .quick-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        .quick-btn {
+            padding: 8px 16px;
+            background: #FEF3C7;
+            color: #92400E;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .msg-textarea {
+            width: 100%;
+            height: 80px;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            resize: none;
+            outline: none;
+        }
+        .msg-textarea:focus { border-color: #4F46E5; }
+
+        .btn-send {
+            width: 100%;
+            padding: 12px;
+            background: #4F46E5;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .btn-send:active { transform: scale(0.97); }
+
+        .btn-dismiss {
+            width: 100%;
+            padding: 10px;
+            background: #f5f5f5;
+            color: #666;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 入口：输入教室号 -->
+    <div class="entry-page" id="entryPage">
+        <div class="entry-card">
+            <h2>👨‍🏫 老师控制台</h2>
+            <p>输入4位教室号，与教室显示屏配对</p>
+            <input class="room-input" type="number" id="roomCodeInput" maxlength="4" placeholder="____">
+            <button class="entry-btn" id="joinBtn" disabled onclick="joinRoom()">进入教室</button>
+        </div>
+    </div>
+
+    <!-- 控制台 -->
+    <div class="control-page" id="controlPage">
+        <div class="status-bar">
+            <div class="status-dot" id="statusDot"></div>
+            <span class="status-text" id="statusText">连接中...</span>
+            <span class="status-room" id="statusRoom"></span>
+        </div>
+
+        <!-- 喊人 -->
+        <div class="section">
+            <div class="section-title">喊人</div>
+            <div class="call-row">
+                <input id="callName" placeholder="输入学生姓名" onkeydown="if(event.key==='Enter')doCall()">
+                <button class="btn-call" onclick="doCall()">🔔 喊人</button>
+            </div>
+            <div class="quick-row">
+                <div class="quick-btn" onclick="quickCall('班长')">班长</div>
+                <div class="quick-btn" onclick="quickCall('课代表')">课代表</div>
+                <div class="quick-btn" onclick="quickCall('全体同学')">全体</div>
+                <div class="quick-btn" onclick="quickCall('卫生委员')">卫生</div>
+            </div>
+        </div>
+
+        <!-- 传话 -->
+        <div class="section">
+            <div class="section-title">传话</div>
+            <textarea class="msg-textarea" id="msgContent" placeholder="输入要传的话..."></textarea>
+            <button class="btn-send" onclick="doSend()">💬 发送传话</button>
+        </div>
+
+        <!-- 操作 -->
+        <div class="section">
+            <button class="btn-dismiss" onclick="doDismiss()">✕ 关闭大屏通知</button>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let currentRoom = '';
+
+        // 入口页面
+        const roomInput = document.getElementById('roomCodeInput');
+        const joinBtn = document.getElementById('joinBtn');
+        roomInput.addEventListener('input', function() {
+            joinBtn.disabled = this.value.length !== 4;
+        });
+        roomInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && this.value.length === 4) joinRoom();
+        });
+
+        function joinRoom() {
+            const code = roomInput.value.trim();
+            if (code.length !== 4) return;
+            currentRoom = code;
+            document.getElementById('entryPage').style.display = 'none';
+            document.getElementById('controlPage').style.display = 'block';
+            document.getElementById('statusRoom').textContent = '教室 ' + code;
+            connectWS(code);
+        }
+
+        function connectWS(roomCode) {
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${location.host}/ws/teacher/${roomCode}`;
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                document.getElementById('statusDot').classList.remove('off');
+                document.getElementById('statusText').textContent = '已连接';
+            };
+            ws.onclose = () => {
+                document.getElementById('statusDot').classList.add('off');
+                document.getElementById('statusText').textContent = '已断开';
+                setTimeout(() => connectWS(roomCode), 3000);
+            };
+            ws.onerror = () => {
+                document.getElementById('statusDot').classList.add('off');
+            };
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'call_result') {
+                    showToast(data.success ? '已喊人！' : '教室显示屏未连接');
+                } else if (data.type === 'message_result') {
+                    showToast(data.success ? '已发送！' : '教室显示屏未连接');
+                } else if (data.type === 'dismiss_result') {
+                    showToast('已关闭');
+                } else if (data.type === 'display_joined') {
+                    showToast(`显示屏「${data.display_name}」已连接`);
+                } else if (data.type === 'display_left') {
+                    showToast('显示屏已断开');
+                }
+            };
+        }
+
+        function doCall() {
+            const name = document.getElementById('callName').value.trim();
+            if (!name || !ws) return;
+            ws.send(JSON.stringify({ type: 'call', name }));
+            document.getElementById('callName').value = '';
+        }
+
+        function quickCall(name) {
+            if (!ws) return;
+            ws.send(JSON.stringify({ type: 'call', name }));
+        }
+
+        function doSend() {
+            const content = document.getElementById('msgContent').value.trim();
+            if (!content || !ws) return;
+            ws.send(JSON.stringify({ type: 'message', content }));
+            document.getElementById('msgContent').value = '';
+        }
+
+        function doDismiss() {
+            if (!ws) return;
+            ws.send(JSON.stringify({ type: 'dismiss' }));
+        }
+
+        function showToast(msg) {
+            const el = document.createElement('div');
+            el.textContent = msg;
+            el.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 24px;border-radius:8px;font-size:0.9rem;z-index:9999;animation:fadeInOut 2s forwards;';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 2000);
+        }
+
+        // 简单动画
+        const style = document.createElement('style');
+        style.textContent = '@keyframes fadeInOut{0%{opacity:0;transform:translateX(-50%) translateY(-10px)}15%{opacity:1;transform:translateX(-50%) translateY(0)}85%{opacity:1}100%{opacity:0}}';
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>
