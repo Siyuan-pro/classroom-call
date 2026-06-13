@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教室显示屏 - 课堂喊人传话系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: #111827;
+            color: #fff;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ---- 入口页面（输入教室号） ---- */
+        .entry-page {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .entry-card {
+            background: #1F2937;
+            border-radius: 20px;
+            padding: 50px 40px;
+            text-align: center;
+            max-width: 480px;
+            width: 100%;
+        }
+        .entry-card h2 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        .entry-card p {
+            color: #9CA3AF;
+            margin-bottom: 30px;
+            font-size: 1rem;
+        }
+        .entry-input {
+            width: 100%;
+            height: 70px;
+            background: #374151;
+            border: 2px solid #4B5563;
+            border-radius: 14px;
+            color: #fff;
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: 20px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .entry-input:focus {
+            border-color: #10B981;
+        }
+        .entry-btn {
+            width: 100%;
+            height: 60px;
+            background: #10B981;
+            color: #fff;
+            font-size: 1.3rem;
+            font-weight: 700;
+            border: none;
+            border-radius: 14px;
+            margin-top: 20px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .entry-btn:hover { background: #059669; }
+        .entry-btn:disabled { background: #374151; color: #6B7280; cursor: default; }
+
+        /* ---- 显示屏主页面 ---- */
+        .display-page { display: none; }
+
+        /* 待机画面 */
+        .idle-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: #111827;
+        }
+        .idle-icon { font-size: 4rem; margin-bottom: 16px; opacity: 0.6; }
+        .idle-text { font-size: 1.5rem; color: #6B7280; }
+        .idle-room { font-size: 3rem; font-weight: 700; color: #10B981; margin-top: 10px; }
+        .idle-hint { font-size: 0.9rem; color: #4B5563; margin-top: 20px; }
+
+        .fullscreen-btn {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            z-index: 100;
+            background: rgba(255,255,255,0.1);
+            color: #9CA3AF;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 8px 14px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .fullscreen-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+        /* 喊人全屏 */
+        .call-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #DC2626;
+            z-index: 999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            animation: flash 0.5s ease-in-out infinite alternate;
+        }
+        @keyframes flash {
+            from { background: #DC2626; }
+            to { background: #EF4444; }
+        }
+        .call-name {
+            font-size: 12vw;
+            font-weight: 900;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        .call-msg {
+            font-size: 4vw;
+            margin-top: 20px;
+            opacity: 0.9;
+        }
+
+        /* 传话全屏 */
+        .message-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #2563EB;
+            z-index: 999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10vw;
+        }
+        .message-content {
+            font-size: 6vw;
+            font-weight: 700;
+            text-align: center;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        /* 底部状态栏 */
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.6);
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 50;
+        }
+        .bottom-bar .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #10B981;
+        }
+        .bottom-bar .dot.off { background: #EF4444; }
+        .bottom-bar .info {
+            font-size: 0.8rem;
+            color: #9CA3AF;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 入口页：输入教室号 -->
+    <div class="entry-page" id="entryPage">
+        <div class="entry-card">
+            <h2>🖥️ 教室显示屏</h2>
+            <p>输入老师给的4位教室号，即可配对</p>
+            <input class="entry-input" type="number" id="roomCodeInput" maxlength="4" placeholder="____">
+            <button class="entry-btn" id="joinBtn" disabled onclick="joinRoom()">连接教室</button>
+        </div>
+    </div>
+
+    <!-- 显示屏主页 -->
+    <div class="display-page" id="displayPage">
+        <button class="fullscreen-btn" onclick="toggleFullscreen()">⛶ 全屏</button>
+
+        <!-- 待机画面 -->
+        <div class="idle-screen" id="idleScreen">
+            <div class="idle-icon">📺</div>
+            <div class="idle-text">等待老师喊人...</div>
+            <div class="idle-room" id="idleRoom"></div>
+            <div class="idle-hint">教室显示屏已就绪</div>
+        </div>
+
+        <!-- 喊人全屏 -->
+        <div class="call-overlay" id="callOverlay">
+            <div class="call-name" id="callName"></div>
+            <div class="call-msg" id="callMsg"></div>
+        </div>
+
+        <!-- 传话全屏 -->
+        <div class="message-overlay" id="messageOverlay">
+            <div class="message-content" id="messageContent"></div>
+        </div>
+
+        <!-- 底部状态栏 -->
+        <div class="bottom-bar">
+            <div class="dot" id="statusDot"></div>
+            <div class="info" id="statusInfo">教室显示屏</div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let autoCloseTimer = null;
+        let currentRoom = '';
+        const displayId = 'display_' + Math.random().toString(36).substr(2, 6);
+
+        // 教室号输入
+        const roomInput = document.getElementById('roomCodeInput');
+        const joinBtn = document.getElementById('joinBtn');
+
+        roomInput.addEventListener('input', function() {
+            joinBtn.disabled = this.value.length !== 4;
+        });
+        roomInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && this.value.length === 4) joinRoom();
+        });
+
+        function joinRoom() {
+            const code = roomInput.value.trim();
+            if (code.length !== 4) return;
+            currentRoom = code;
+            document.getElementById('entryPage').style.display = 'none';
+            document.getElementById('displayPage').style.display = 'block';
+            document.getElementById('idleRoom').textContent = code;
+            connectWS(code);
+        }
+
+        function connectWS(roomCode) {
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${location.host}/ws/display/${roomCode}/${displayId}?name=教室大屏`;
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                document.getElementById('statusDot').classList.remove('off');
+                document.getElementById('statusInfo').textContent = `教室 ${roomCode} - 已连接`;
+            };
+
+            ws.onclose = () => {
+                document.getElementById('statusDot').classList.add('off');
+                document.getElementById('statusInfo').textContent = '已断开 - 重连中...';
+                setTimeout(() => connectWS(roomCode), 3000);
+            };
+
+            ws.onerror = () => {
+                document.getElementById('statusDot').classList.add('off');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleMessage(data);
+            };
+        }
+
+        function handleMessage(data) {
+            clearTimeout(autoCloseTimer);
+
+            if (data.type === 'called') {
+                showCall(data.name, data.message);
+                playSound();
+                speak(data.message || `${data.name}，老师叫你！`);
+                autoCloseTimer = setTimeout(hideAll, 30000);
+            }
+            else if (data.type === 'message') {
+                showMessage(data.content);
+                playSound();
+                speak(data.content);
+                autoCloseTimer = setTimeout(hideAll, 20000);
+            }
+            else if (data.type === 'dismiss') {
+                hideAll();
+            }
+        }
+
+        function showCall(name, message) {
+            document.getElementById('idleScreen').style.display = 'none';
+            document.getElementById('messageOverlay').style.display = 'none';
+            document.getElementById('callName').textContent = name;
+            document.getElementById('callMsg').textContent = message || `${name}，老师叫你！`;
+            document.getElementById('callOverlay').style.display = 'flex';
+        }
+
+        function showMessage(content) {
+            document.getElementById('idleScreen').style.display = 'none';
+            document.getElementById('callOverlay').style.display = 'none';
+            document.getElementById('messageContent').textContent = content;
+            document.getElementById('messageOverlay').style.display = 'flex';
+        }
+
+        function hideAll() {
+            document.getElementById('callOverlay').style.display = 'none';
+            document.getElementById('messageOverlay').style.display = 'none';
+            document.getElementById('idleScreen').style.display = 'flex';
+        }
+
+        // 铃声
+        function playSound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                for (let i = 0; i < 3; i++) {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.frequency.value = 880;
+                    osc.type = 'sine';
+                    gain.gain.value = 0.3;
+                    const t = ctx.currentTime + i * 0.4;
+                    osc.start(t);
+                    osc.stop(t + 0.25);
+                }
+            } catch (e) {}
+        }
+
+        // 语音播报
+        function speak(text) {
+            try {
+                const u = new SpeechSynthesisUtterance(text);
+                u.lang = 'zh-CN';
+                u.rate = 0.9;
+                u.volume = 1;
+                speechSynthesis.cancel();
+                speechSynthesis.speak(u);
+            } catch (e) {}
+        }
+
+        // 全屏
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                document.exitFullscreen();
+            }
+        }
+    </script>
+</body>
+</html>
